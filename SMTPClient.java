@@ -1,60 +1,95 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
-import java.net.UnknownHostException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.Base64;
+import java.util.List;
 
 public class SMTPClient {
     private Socket socket;
-    public PrintWriter out;
+    private PrintWriter out;
     private BufferedReader in;
 
-    public SMTPClient() {
-        try {
-            socket = new Socket("localhost", 6423);
-            out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    public SMTPClient() throws IOException {
+        socket = new Socket("localhost", 6423);
+        out = new PrintWriter(socket.getOutputStream(), true);
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-    private String encodeCredentials(String username, String password) {
-        // Encode credentials as per the authentication method required by the server
-        String credentials = username + "\u0000" + username + "\u0000" + password;
-        return Base64.getEncoder().encodeToString(credentials.getBytes());
+        System.out.println(in.readLine()); // Read the server's initial response
     }
 
     public boolean authorize(String username, String password) throws IOException {
-        out.println("AUTH PLAIN " + encodeCredentials(username, password));
-        String response = in.readLine(); // Receive authentication response from the server
-        System.out.println(response);
-        return response.equals("235 Authentication successful");
+        out.println("EHLO localhost");
+        System.out.println(in.readLine()); // Read server response
+
+        String authString = "\u0000" + username + "\u0000" + password;
+        String encodedAuthString = Base64.getEncoder().encodeToString(authString.getBytes());
+        out.println("AUTH PLAIN " + encodedAuthString);
+
+        String response = in.readLine();
+        return response.startsWith("235");
     }
 
-    public void sendEmail(String sender, String recipient, String subject, String body) throws IOException {
+    public void sendEmail(String from, String to, String subject, String message, List<File> attachments) throws IOException {
+        out.println("MAIL FROM:<" + from + ">");
+        System.out.println(in.readLine()); // Read server response
 
-        out.println("HELLO localhost");
-        System.out.println(in.readLine()); // Receive welcome message
+        out.println("RCPT TO:<" + to + ">");
+        System.out.println(in.readLine()); // Read server response
 
-        out.println("From: " + sender);
-        out.println("To: " + recipient);
+        out.println("DATA");
+        System.out.println(in.readLine()); // Read server response
+
+        out.println("From: " + from);
+        out.println("To: " + to);
         out.println("Subject: " + subject);
-        out.println("Body: " + body);
+        out.println("Message: " + message.replaceAll("\n", " ")); // Only send the first line of the message
+
+        for (File attachment : attachments) {
+            if (attachment != null) {
+                out.println("--boundary");
+                out.println("Content-Type: application/octet-stream; name=\"" + attachment.getName() + "\"");
+                out.println("Content-Transfer-Encoding: base64");
+                out.println("Content-Disposition: attachment; filename=\"" + attachment.getName() + "\"");
+
+                try (FileInputStream fileInputStream = new FileInputStream(attachment);
+                     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                        byteArrayOutputStream.write(buffer, 0, bytesRead);
+                    }
+
+                    String encodedFileContent = Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
+                    out.println(encodedFileContent);
+                }
+            }
+        }
+
         out.println(".");
-        System.out.println(in.readLine()); // Receive DATA response
+        System.out.println(in.readLine()); // Read server response
     }
 
-    public static void main(String[] args) throws IOException {
-        SMTPClient client = new SMTPClient();
-        String sender = "sender@example.com";
-        String recipient = "recipient@example.com";
-        String subject = "Test Email";
-        String body = "This is a test email sent via SMTP Client/Server program.";
+    public void quit() throws IOException {
+        out.println("QUIT");
+        System.out.println(in.readLine()); // Read server response
+        socket.close();
+    }
 
-        // Send email as usual
-        client.sendEmail(sender, recipient, subject, body);
+    public static void main(String[] args) {
+        // Example usage
+        try {
+            SMTPClient client = new SMTPClient();
+            if (client.authorize("sgvt@gmail.com", "123")) {
+                System.out.println("Authorization successful!");
+                client.sendEmail("sgvt@gmail.com", "recipient@example.com", "Test Subject", "This is a test message.", null);
+                client.quit();
+            } else {
+                System.out.println("Authorization failed.");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

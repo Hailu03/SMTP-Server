@@ -2,7 +2,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SMTPClientGUI extends JFrame implements ActionListener {
     private JTextField usernameField;
@@ -11,21 +14,19 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
     private JLabel backgroundLabel;
     private SMTPClient smtpClient;
 
-    public SMTPClientGUI() {
+    public SMTPClientGUI() throws IOException {
         setTitle("Login Page");
         setSize(600, 400);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLocationRelativeTo(null); // Center the window
+        setLocationRelativeTo(null);
 
-        // Load background image
         ImageIcon backgroundImage = new ImageIcon("background.jpg");
         backgroundLabel = new JLabel(backgroundImage);
-        backgroundLabel.setLayout(null); // Set layout to null for manual positioning
+        backgroundLabel.setLayout(null);
 
-        // Create login panel
         JPanel loginPanel = new JPanel();
         loginPanel.setLayout(new GridBagLayout());
-        loginPanel.setOpaque(true); // Make panel transparent
+        loginPanel.setOpaque(true);
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(10, 10, 10, 10);
@@ -36,7 +37,6 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         passwordField = new JPasswordField(15);
         loginButton = new JButton("Login");
 
-        // Set background color to make components visible
         usernameField.setBackground(Color.WHITE);
         passwordField.setBackground(Color.WHITE);
         loginButton.setBackground(Color.WHITE);
@@ -63,16 +63,10 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         gbc.anchor = GridBagConstraints.CENTER;
         loginPanel.add(loginButton, gbc);
 
-        // Position the login panel manually within the background label
         loginPanel.setBounds(150, 90, 320, 200);
-
-        // Add login panel to the background label
         backgroundLabel.add(loginPanel);
-
-        // Set the background label as the content pane
         setContentPane(backgroundLabel);
 
-        // Initialize SMTPClient
         smtpClient = new SMTPClient();
     }
 
@@ -81,90 +75,87 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         if (e.getSource() == loginButton) {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword());
-            System.out.println("Username: " + username);
-            System.out.println("Password: " + password);
 
-            // Dummy authentication for demonstration
             if (authenticate(username, password)) {
-                // If authentication succeeds, show send message page
-                System.out.println("Login successful");
                 showMessagePage(username);
-
-                // Kill the login page
                 this.dispose();
             } else {
-                // If authentication fails, show error message
-                System.out.println("Login failed");
                 JOptionPane.showMessageDialog(this, "Invalid username or password", "Login Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
     private boolean authenticate(String username, String password) {
-        // Communicate with the server for authentication
         try {
-            // Attempt to authenticate with the server
             return smtpClient.authorize(username, password);
         } catch (IOException e) {
             e.printStackTrace();
-            return false; // Authentication failed due to communication error
+            return false;
         }
     }
 
     private void showMessagePage(String username) {
-        // Create a new JFrame for the send message page
         JFrame sendMessageFrame = new JFrame("Send Message Page");
         sendMessageFrame.setSize(600, 400);
         sendMessageFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        sendMessageFrame.setLocationRelativeTo(null); // Center the window
+        sendMessageFrame.setLocationRelativeTo(null);
 
-        // Create send message panel
         JPanel sendMessagePanel = new JPanel(new BorderLayout());
         sendMessagePanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        // Create panel for input fields
-        JPanel inputPanel = new JPanel(new GridLayout(3, 1, 10, 10));
+        JPanel inputPanel = new JPanel(new BorderLayout()); // BorderLayout for input panel
 
-        // Add components for recipient, subject, and message
+        JPanel fieldsPanel = new JPanel(new GridLayout(2, 1, 0, 10)); // GridLayout with 2 rows for fields, spacing of 10px between rows
+
         JTextField recipientField = new JTextField();
         JTextField subjectField = new JTextField();
-        recipientField.setPreferredSize(new Dimension(200, 10)); // Set preferred size for recipient field
-        subjectField.setPreferredSize(new Dimension(200, 10)); // Set preferred size for subject field
 
         JTextArea messageArea = new JTextArea();
+        messageArea.setPreferredSize(new Dimension(200, 200));
 
-        messageArea.setRows(10); // Set number of visible rows for the message area
-        // Set line wrap and wrap style properties for the message area
-        messageArea.setLineWrap(true);
-        messageArea.setWrapStyleWord(true);
+        fieldsPanel.add(createLabeledTextField("Recipient:", recipientField, 200, 20)); // Add recipient field
+        fieldsPanel.add(createLabeledTextField("Subject:", subjectField, 200, 20)); // Add subject field // Add subject field
 
-        // Customize input fields
-        recipientField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY),
-                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-        subjectField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY),
-                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
-        messageArea.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Color.GRAY),
-                BorderFactory.createEmptyBorder(5, 5, 5, 5)));
+        // Add fields panel to input panel with vertical spacing
+        inputPanel.add(fieldsPanel, BorderLayout.NORTH);
+        inputPanel.add(Box.createVerticalStrut(40), BorderLayout.CENTER); // Add vertical space between fields and message area
+        inputPanel.add(createLabeledTextArea("Message:", messageArea, 200, 170), BorderLayout.SOUTH); // Add message area
 
-        // Add components for recipient, subject, and message with custom sizes
-        inputPanel.add(createLabeledTextField("Recipient:", recipientField, 200, 10)); // Adjust width and height as needed
-        inputPanel.add(createLabeledTextField("Subject:", subjectField, 200, 10)); // Adjust width and height as needed
-        inputPanel.add(createLabeledTextArea("Message:", messageArea));
+        // File attachment field
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton attachButton = new JButton("Attach Files");
+        JLabel fileLabel = new JLabel("No files attached");
+        List<File> attachments = new ArrayList<>();
 
-        // Create submit button
+        attachButton.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setMultiSelectionEnabled(true);
+            int result = fileChooser.showOpenDialog(sendMessageFrame);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                File[] selectedFiles = fileChooser.getSelectedFiles();
+                for (File file : selectedFiles) {
+                    attachments.add(file);
+                }
+                fileLabel.setText("Attached: " + attachments.size() + " files");
+            }
+        });
+
+        // Change the attachmentPanel layout to BoxLayout
+        JPanel attachmentPanel = new JPanel();
+        attachmentPanel.setLayout(new BoxLayout(attachmentPanel, BoxLayout.Y_AXIS));
+
+        // Add attach button and file label to the attachment panel
+        attachmentPanel.add(attachButton);
+        attachmentPanel.add(fileLabel);
+
         JButton submitButton = new JButton("Submit");
         submitButton.addActionListener(e -> {
-            // Get recipient, subject, and message
             String recipient = recipientField.getText();
             String subject = subjectField.getText();
             String message = messageArea.getText();
 
-            // Send email
             try {
-                smtpClient.sendEmail(username, recipient, subject, message);
+                smtpClient.sendEmail(username, recipient, subject, message, attachments);
                 JOptionPane.showMessageDialog(sendMessageFrame, "Email sent successfully");
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -172,45 +163,51 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
             }
         });
 
-        // if user closes the send message page, close the login page as well
-        sendMessageFrame.addWindowListener(new java.awt.event.WindowAdapter() {
-            @Override
-            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-                // close the socket connection
-                smtpClient.out.println("QUIT");
-                System.exit(0);
-            }
-        });
 
-        // Add input panel and submit button to the main panel
         sendMessagePanel.add(inputPanel, BorderLayout.CENTER);
-        sendMessagePanel.add(submitButton, BorderLayout.SOUTH);
+        buttonPanel.add(attachmentPanel);
+        buttonPanel.add(submitButton);
+        // Add the button panel to the sendMessagePanel
+        sendMessagePanel.add(buttonPanel, BorderLayout.SOUTH);
 
-        // Set content pane and make the frame visiblerec
-        sendMessageFrame.setContentPane(sendMessagePanel);
+        sendMessageFrame.add(sendMessagePanel);
         sendMessageFrame.setVisible(true);
     }
 
-    // Modify createLabeledTextField method to set preferred sizes
-    private JPanel createLabeledTextField(String labelText, JTextField textField, int width, int height) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel(labelText), BorderLayout.NORTH);
-        textField.setPreferredSize(new Dimension(width, height)); // Set preferred size
+    private JPanel createLabeledTextField(String label, JTextField textField, int width, int height) {
+        JPanel panel = new JPanel(new BorderLayout(10, 1));
+        JLabel jLabel = new JLabel(label);
+
+        // Set the preferred size of the text field
+        textField.setPreferredSize(new Dimension(width, height));
+
+        panel.add(jLabel, BorderLayout.WEST);
         panel.add(textField, BorderLayout.CENTER);
         return panel;
     }
 
-    private JPanel createLabeledTextArea(String labelText, JTextArea textArea) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel(labelText), BorderLayout.NORTH);
-        panel.add(new JScrollPane(textArea), BorderLayout.CENTER);
+    private JPanel createLabeledTextArea(String label, JTextArea textArea, int width, int height) {
+        JPanel panel = new JPanel(new BorderLayout(10, 5));
+        JLabel jLabel = new JLabel(label);
+        JScrollPane scrollPane = new JScrollPane(textArea);
+        scrollPane.setPreferredSize(new Dimension(width, height));
+
+        // Adjust the height of the label area by specifying BorderLayout.NORTH
+        panel.add(jLabel, BorderLayout.NORTH);
+        panel.add(scrollPane, BorderLayout.CENTER);  // Keep the scroll pane in the center
+
         return panel;
     }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            SMTPClientGUI loginFrame = new SMTPClientGUI();
-            loginFrame.setVisible(true);
+            SMTPClientGUI gui = null;
+            try {
+                gui = new SMTPClientGUI();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            gui.setVisible(true);
         });
     }
 }
