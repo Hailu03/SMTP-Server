@@ -3,6 +3,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.*;
 import java.util.*;
+import java.sql.Date;
 
 public class SMTPServer {
     private ServerSocket serverSocket;
@@ -94,7 +95,7 @@ public class SMTPServer {
         Email email = parseEmail(emailData);
 
         try (PreparedStatement stmt = dbConnection.prepareStatement(
-                "INSERT INTO \"Email\" (\"From\", \"To\", subject, message, attachment) VALUES (?, ?, ?, ?, ?)")) {
+                "INSERT INTO \"Email\" (\"From\", \"To\", subject, message, attachment, \"Date\") VALUES (?, ?, ?, ?, ?, ?)")) {
             stmt.setString(1, email.getFrom());
             stmt.setString(2, email.getTo());
             stmt.setString(3, email.getSubject());
@@ -109,6 +110,8 @@ public class SMTPServer {
                 }
                 stmt.setString(5, attachmentNames.toString());
             }
+
+            stmt.setDate(6, email.getDate());
 
             stmt.executeUpdate();
             System.out.println("Email saved to PostgreSQL");
@@ -193,8 +196,14 @@ class Email {
     private String from;
     private String to;
     private String subject;
+    private Date date;
     private String message;
     private List<Attachment> attachments;
+
+    public Email() {
+        this.attachments = new ArrayList<>();
+        this.date = new Date(System.currentTimeMillis()); // Default to the current date
+    }
 
     // Getters and Setters
     public String getFrom() {
@@ -228,6 +237,10 @@ class Email {
     public void setMessage(String message) {
         this.message = message;
     }
+
+    public Date getDate() { return date; }
+
+    public void setDate(Date date) { this.date = date; }
 
     public List<Attachment> getAttachments() {
         return attachments;
