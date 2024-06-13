@@ -149,7 +149,7 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         attachmentPanel.add(fileLabel);
 
         JButton submitButton = new JButton("Submit");
-        submitButton.addActionListener(e -> {
+        submitButton.addActionListener(ev -> {
             String recipient = recipientField.getText();
             String subject = subjectField.getText();
             String message = messageArea.getText();

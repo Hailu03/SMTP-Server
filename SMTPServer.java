@@ -1,19 +1,29 @@
+import javax.mail.*;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
+
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.*;
-import java.util.*;
-import java.sql.Date;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.Properties;
+
 
 public class SMTPServer {
     private ServerSocket serverSocket;
-    private Map<Integer, Email> database;
     private Connection dbConnection;
 
     // Establish database connection
 
     public SMTPServer() {
-        database = new HashMap<>();
         try {
             serverSocket = new ServerSocket(6423);
             System.out.println("SMTP Server is listening on port 6423...");
@@ -88,7 +98,7 @@ public class SMTPServer {
     private boolean authenticate(String authData) {
         String decodedData = new String(Base64.getDecoder().decode(authData));
         String[] credentials = decodedData.split("\u0000");
-        return credentials.length >= 3 && credentials[1].equals("sgvt") && credentials[2].equals("123");
+            return credentials.length >= 3 && credentials[1].equals("{your email}") && credentials[2].equals("{password}");
     }
 
     private void saveEmail(String emailData) {
@@ -115,10 +125,63 @@ public class SMTPServer {
 
             stmt.executeUpdate();
             System.out.println("Email saved to PostgreSQL");
+
+            forwardEmail(email);
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
+    private void forwardEmail(Email email) {
+        Properties props = new Properties();
+        props.put("mail.smtp.host", "smtp.gmail.com");
+        props.put("mail.smtp.port", "587");
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+
+        // create a mail session with the properties
+        Session session = Session.getInstance(props, new Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication() {
+                return new PasswordAuthentication("{your email}", "{password}");
+            }
+        });
+
+        try {
+            // create a new message
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(email.getFrom()));
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(email.getTo()));
+            message.setSubject(email.getSubject());
+            message.setSentDate(email.getDate());
+
+            // Create the message part
+            BodyPart messageBodyPart = new MimeBodyPart();
+            messageBodyPart.setText(email.getMessage());
+
+            // Create a multipart message
+            Multipart multipart = new MimeMultipart();
+            multipart.addBodyPart(messageBodyPart);
+
+            // Add attachments if any
+            for (Attachment attachment : email.getAttachments()) {
+                MimeBodyPart attachmentPart = new MimeBodyPart();
+                DataSource source = (DataSource) new ByteArrayDataSource(attachment.getData(), "application/octet-stream");
+                attachmentPart.setDataHandler(new DataHandler(source));
+                attachmentPart.setFileName(attachment.getFilename());
+                multipart.addBodyPart(attachmentPart);
+            }
+
+            // Send the complete message parts
+            message.setContent(multipart);
+
+            // Send the email
+            Transport.send(message);
+            System.out.println("Email forwarded to external SMTP server");
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+    }
+
 
 
     private Email parseEmail(String emailData) {
