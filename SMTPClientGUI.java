@@ -4,6 +4,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -75,9 +77,13 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         if (e.getSource() == loginButton) {
             String username = usernameField.getText().trim();
             String password = new String(passwordField.getPassword());
-
             if (authenticate(username, password)) {
-                showMessagePage(username);
+                try {
+                    showMessagePage(username);
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(this, "Failed to fetch email history", "Error", JOptionPane.ERROR_MESSAGE);
+                }
                 this.dispose();
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid username or password", "Login Error", JOptionPane.ERROR_MESSAGE);
@@ -94,7 +100,7 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         }
     }
 
-    private void showMessagePage(String username) {
+    private void showMessagePage(String username) throws SQLException {
         JFrame sendMessageFrame = new JFrame("Send Message Page");
         sendMessageFrame.setSize(600, 400);
         sendMessageFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -140,13 +146,20 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
             }
         });
 
-        // Change the attachmentPanel layout to BoxLayout
-        JPanel attachmentPanel = new JPanel();
-        attachmentPanel.setLayout(new BoxLayout(attachmentPanel, BoxLayout.Y_AXIS));
+        // Button to show email history
+        JButton showHistoryButton = new JButton("Show Email History");
+        showHistoryButton.addActionListener(ev -> {
+            try {
+                showEmailHistory(username);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(sendMessageFrame, "Failed to fetch email history", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
 
-        // Add attach button and file label to the attachment panel
-        attachmentPanel.add(attachButton);
-        attachmentPanel.add(fileLabel);
+        buttonPanel.add(attachButton);
+        buttonPanel.add(fileLabel);
+        buttonPanel.add(showHistoryButton);
 
         JButton submitButton = new JButton("Submit");
         submitButton.addActionListener(ev -> {
@@ -156,18 +169,23 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
 
             try {
                 smtpClient.sendEmail(username, recipient, subject, message, attachments);
+                // Show a dialog box indicating that the email was sent successfully
                 JOptionPane.showMessageDialog(sendMessageFrame, "Email sent successfully");
+
+                // Clear the fields after sending the email
+                recipientField.setText("");
+                subjectField.setText("");
+                messageArea.setText("");
+                attachments.clear();
+                fileLabel.setText("No files attached");
             } catch (IOException ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(sendMessageFrame, "Failed to send email", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-
         sendMessagePanel.add(inputPanel, BorderLayout.CENTER);
-        buttonPanel.add(attachmentPanel);
         buttonPanel.add(submitButton);
-        // Add the button panel to the sendMessagePanel
         sendMessagePanel.add(buttonPanel, BorderLayout.SOUTH);
 
         sendMessageFrame.add(sendMessagePanel);
@@ -191,12 +209,50 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         JLabel jLabel = new JLabel(label);
         JScrollPane scrollPane = new JScrollPane(textArea);
         scrollPane.setPreferredSize(new Dimension(width, height));
-
         // Adjust the height of the label area by specifying BorderLayout.NORTH
         panel.add(jLabel, BorderLayout.NORTH);
         panel.add(scrollPane, BorderLayout.CENTER);  // Keep the scroll pane in the center
 
         return panel;
+    }
+
+    private void showEmailHistory(String username) throws SQLException {
+        ResultSet resultSet = smtpClient.getEmailHistory(username);
+        JFrame historyFrame = new JFrame("Email History for " + username);
+        historyFrame.setSize(600, 400);
+        historyFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        historyFrame.setLocationRelativeTo(null);
+        JPanel historyPanel = new JPanel(new BorderLayout());
+        historyPanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
+        JTable historyTable = new JTable(buildTableModel(resultSet));
+        JScrollPane scrollPane = new JScrollPane(historyTable);
+        historyPanel.add(scrollPane, BorderLayout.CENTER);
+        historyFrame.add(historyPanel);
+        historyFrame.setVisible(true);
+    }
+
+    // Helper method to convert ResultSet to TableModel
+    private static javax.swing.table.DefaultTableModel buildTableModel(ResultSet rs) throws SQLException {
+        java.sql.ResultSetMetaData metaData = rs.getMetaData();
+
+        // Names of columns
+        java.util.Vector<String> columnNames = new java.util.Vector<>();
+        int columnCount = metaData.getColumnCount();
+        for (int column = 1; column <= columnCount; column++) {
+            columnNames.add(metaData.getColumnName(column));
+        }
+
+        // Data of the table
+        java.util.Vector<java.util.Vector<Object>> data = new java.util.Vector<>();
+        while (rs.next()) {
+            java.util.Vector<Object> vector = new java.util.Vector<>();
+            for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+                vector.add(rs.getObject(columnIndex));
+            }
+            data.add(vector);
+        }
+
+        return new javax.swing.table.DefaultTableModel(data, columnNames);
     }
 
     public static void main(String[] args) {

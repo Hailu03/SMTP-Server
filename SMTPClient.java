@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.Socket;
+import java.sql.*;
 import java.util.Base64;
 import java.util.List;
 
@@ -7,11 +8,21 @@ public class SMTPClient {
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
+    private Connection connection;
 
     public SMTPClient() throws IOException {
         socket = new Socket("localhost", 6423);
         out = new PrintWriter(socket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        try {
+            String url = "jdbc:postgresql://localhost:5432/SMTP";
+            String user = "postgres";
+            String password = "Hailuke!21092003";
+            connection = DriverManager.getConnection(url, user, password);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         System.out.println(in.readLine()); // Read the server's initial response
     }
@@ -25,6 +36,7 @@ public class SMTPClient {
         out.println("AUTH PLAIN " + encodedAuthString);
 
         String response = in.readLine();
+        System.out.println(response);
         return response.startsWith("235");
     }
 
@@ -73,6 +85,13 @@ public class SMTPClient {
         out.println("QUIT");
         System.out.println(in.readLine()); // Read server response
         socket.close();
+    }
+
+    public ResultSet getEmailHistory(String username) throws SQLException {
+        String querySQL = "SELECT * FROM \"Email\" WHERE \"From\" = ?";
+        PreparedStatement pstmt = connection.prepareStatement(querySQL);
+        pstmt.setString(1, username);
+        return pstmt.executeQuery();
     }
 
     public static void main(String[] args) {

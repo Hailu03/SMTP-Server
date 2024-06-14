@@ -98,7 +98,7 @@ public class SMTPServer {
     private boolean authenticate(String authData) {
         String decodedData = new String(Base64.getDecoder().decode(authData));
         String[] credentials = decodedData.split("\u0000");
-            return credentials.length >= 3 && credentials[1].equals("{your email}") && credentials[2].equals("{password}");
+            return credentials.length >= 3 && credentials[1].equals("haiqua2k3@gmail.com") && credentials[2].equals("HAI210903");
     }
 
     private void saveEmail(String emailData) {
@@ -142,7 +142,7 @@ public class SMTPServer {
         // create a mail session with the properties
         Session session = Session.getInstance(props, new Authenticator() {
             protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication("{your email}", "{password}");
+                return new PasswordAuthentication("haiqua2k3@gmail.com", "imzvqwzcxxwoexhv");
             }
         });
 
