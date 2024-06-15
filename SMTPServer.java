@@ -84,6 +84,7 @@ public class SMTPServer {
                 while (!(inputLine = in.readLine()).equals(".")) {
                     emailData.append(inputLine).append("\n");
                 }
+                System.out.println(emailData.toString());
                 saveEmail(emailData.toString());
                 out.println("250 OK");
             } else if (command[0].equals("QUIT")) {
@@ -216,7 +217,7 @@ public class SMTPServer {
                 email.setTo(line.substring(4));
             } else if (line.startsWith("Subject: ")) {
                 email.setSubject(line.substring(9));
-            } else if (line.startsWith("Content-Type: text/plain")) {
+            } else if (line.startsWith("Content-Transfer-Encoding: 7bit")) {
                 isMessage = true;
             } else if (line.startsWith("--")) {
                 isMessage = false;

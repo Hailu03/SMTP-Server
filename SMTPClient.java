@@ -79,6 +79,7 @@ public class SMTPClient {
         // Send message text part
         out.println("--" + boundary);
         out.println("Content-Type: text/plain; charset=UTF-8");
+        out.println("Content-Transfer-Encoding: 7bit");
         out.println();
         out.println(message);
         out.println();
