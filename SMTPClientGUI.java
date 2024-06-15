@@ -142,7 +142,7 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         sendMessageFrame.setSize(600, 560);
 
         sendMessageFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        sendMessageFrame.setLocationRelativeTo(null)
+        sendMessageFrame.setLocationRelativeTo(null);
         JPanel sendMessagePanel = new JPanel(new BorderLayout());
         sendMessagePanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
