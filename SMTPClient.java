@@ -47,7 +47,7 @@ public class SMTPClient {
         out.println("EHLO localhost");
         System.out.println(in.readLine()); // Read server response
 
-        String authString = "\u0000" + username + "\u0000" + password;
+        String authString = username + "\u0000" + password;
         String encodedAuthString = Base64.getEncoder().encodeToString(authString.getBytes());
         out.println("AUTH PLAIN " + encodedAuthString);
 
@@ -66,7 +66,7 @@ public class SMTPClient {
         out.println("DATA");
         System.out.println(in.readLine()); // Read server response
 
-            out.println("Date: " + sdf.format(date)); // format the date
+        out.println("Date: " + sdf.format(date)); // format the date
         out.println("From: " + from);
         out.println("To: " + to);
         out.println("Subject: " + subject);

@@ -79,13 +79,11 @@ public class SMTPServer {
             } else if (command[0].equals("RCPT") && command[1].startsWith("TO:")) {
                 out.println("250 OK");
             } else if (command[0].equals("DATA")) {
-                out.println("354 Start mail input; end with <CRLF>.<CRLF>");
+                out.println("354 Start mail input");
                 StringBuilder emailData = new StringBuilder();
                 while (!(inputLine = in.readLine()).equals(".")) {
                     emailData.append(inputLine).append("\n");
                 }
-                System.out.println("Received email:");
-                System.out.println(emailData.toString());
                 saveEmail(emailData.toString());
                 out.println("250 OK");
             } else if (command[0].equals("QUIT")) {
@@ -99,9 +97,9 @@ public class SMTPServer {
     }
 
     private boolean authenticate(String authData) {
-        String decodedData = new String(Base64.getDecoder().decode(authData)); // decode the
+        String decodedData = new String(Base64.getDecoder().decode(authData)); // decode the authentication data
         String[] credentials = decodedData.split("\u0000");
-            return credentials.length >= 3 && credentials[1].equals("haiqua2k3@gmail.com") && credentials[2].equals("HAI210903");
+        return credentials.length >= 2 && credentials[0].equals("haiqua2k3@gmail.com") && credentials[1].equals("HAI210903");
     }
 
     private void saveEmail(String emailData) {
