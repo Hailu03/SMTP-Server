@@ -2,6 +2,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -15,6 +17,7 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
     private JButton loginButton;
     private JLabel backgroundLabel;
     private SMTPClient smtpClient;
+    private JButton quitButton;
 
     public SMTPClientGUI() throws IOException {
         setTitle("Login Page");
@@ -37,13 +40,18 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         usernameField = new JTextField(15);
         JLabel passwordLabel = new JLabel("Password:");
         passwordField = new JPasswordField(15);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout());
         loginButton = new JButton("Login");
+        quitButton = new JButton("Quit"); // Initialize Quit button
 
         usernameField.setBackground(Color.WHITE);
         passwordField.setBackground(Color.WHITE);
         loginButton.setBackground(Color.WHITE);
+        quitButton.setBackground(Color.WHITE); // Set background color
 
         loginButton.addActionListener(this);
+        quitButton.addActionListener(this); // Add ActionListener for Quit button
 
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -63,13 +71,32 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         gbc.gridy = 2;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
-        loginPanel.add(loginButton, gbc);
+        buttonPanel.add(loginButton);
+        buttonPanel.add(quitButton);
+        loginPanel.add(buttonPanel, gbc);
+//        loginPanel.add(loginButton, gbc);
+//
+//        gbc.gridy = 3; // Increment gridy for Quit button
+//        loginPanel.add(quitButton, gbc); // Add Quit button
 
         loginPanel.setBounds(150, 90, 320, 200);
         backgroundLabel.add(loginPanel);
         setContentPane(backgroundLabel);
 
         smtpClient = new SMTPClient();
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    JOptionPane.showMessageDialog(SMTPClientGUI.this, "Disconnected from server", "Quit", JOptionPane.INFORMATION_MESSAGE);
+                    smtpClient.quit();
+                    dispose(); // Dispose the JFrame
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(SMTPClientGUI.this, "Failed to disconnect from server", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
     }
 
     @Override
@@ -88,6 +115,15 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid username or password", "Login Error", JOptionPane.ERROR_MESSAGE);
             }
+        } else if (e.getSource() == quitButton) {
+            try {
+                smtpClient.quit();
+                JOptionPane.showMessageDialog(this, "Disconnected from server", "Quit", JOptionPane.INFORMATION_MESSAGE);
+                System.exit(0); // Optionally exit the application after quitting
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Failed to disconnect from server", "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -100,12 +136,13 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         }
     }
 
+
     private void showMessagePage(String username) throws SQLException {
         JFrame sendMessageFrame = new JFrame("Send Message Page");
-        sendMessageFrame.setSize(600, 520);
-        sendMessageFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        sendMessageFrame.setLocationRelativeTo(null);
+        sendMessageFrame.setSize(600, 560);
 
+        sendMessageFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        sendMessageFrame.setLocationRelativeTo(null)
         JPanel sendMessagePanel = new JPanel(new BorderLayout());
         sendMessagePanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
@@ -180,7 +217,6 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         });
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttonPanel.add(showHistoryButton);
 
         JButton submitButton = new JButton("Submit");
         submitButton.addActionListener(ev -> {
@@ -204,13 +240,46 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
             }
         });
 
-        sendMessagePanel.add(inputPanel, BorderLayout.CENTER);
+        quitButton = new JButton("Quit"); // Add Quit button
+
+        quitButton.addActionListener(ev -> {
+            int option = JOptionPane.showConfirmDialog(sendMessageFrame, "Are you sure you want to quit?", "Confirm Quit", JOptionPane.YES_NO_OPTION);
+            if (option == JOptionPane.YES_OPTION) {
+                try {
+                    smtpClient.quit();
+                    JOptionPane.showMessageDialog(sendMessageFrame, "Disconnected from server", "Quit", JOptionPane.INFORMATION_MESSAGE);
+                    sendMessageFrame.dispose(); // Dispose the JFrame
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(sendMessageFrame, "Failed to disconnect from server", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+
+        sendMessagePanel.add(inputPanel, BorderLayout.NORTH);
+        sendMessagePanel.add(attachmentPanel, BorderLayout.CENTER);
+        buttonPanel.add(showHistoryButton);
         buttonPanel.add(submitButton);
-        sendMessagePanel.add(buttonPanel, BorderLayout.NORTH);
-        sendMessagePanel.add(attachmentPanel, BorderLayout.SOUTH);
+        sendMessagePanel.add(buttonPanel, BorderLayout.SOUTH);
+        buttonPanel.add(quitButton);
 
         sendMessageFrame.add(sendMessagePanel);
         sendMessageFrame.setVisible(true);
+
+        sendMessageFrame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    smtpClient.quit();
+                    JOptionPane.showMessageDialog(sendMessageFrame, "Disconnected from server", "Quit", JOptionPane.INFORMATION_MESSAGE);
+                    sendMessageFrame.dispose(); // Dispose the JFrame
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(sendMessageFrame, "Failed to disconnect from server", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
     }
 
     private JPanel createLabeledTextField(String label, JTextField textField, int width, int height) {

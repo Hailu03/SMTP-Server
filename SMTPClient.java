@@ -132,7 +132,7 @@ public class SMTPClient {
         // Example usage
         try {
             SMTPClient client = new SMTPClient();
-            if (client.authorize("sgvt@gmail.com", "123")) {
+            if (client.authorize("haiqua2k3@gmail.com", "HAI210903")) {
                 System.out.println("Authorization successful!");
                 client.sendEmail("sgvt@gmail.com", "recipient@example.com", "Test Subject", "This is a test message.", null);
                 client.quit();
