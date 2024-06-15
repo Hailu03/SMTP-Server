@@ -11,6 +11,8 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.Properties;
 public class SMTPServer {
     private ServerSocket serverSocket;
     private Connection dbConnection;
+    SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z");
 
     // Establish database connection
 
@@ -96,7 +99,7 @@ public class SMTPServer {
     }
 
     private boolean authenticate(String authData) {
-        String decodedData = new String(Base64.getDecoder().decode(authData));
+        String decodedData = new String(Base64.getDecoder().decode(authData)); // decode the
         String[] credentials = decodedData.split("\u0000");
             return credentials.length >= 3 && credentials[1].equals("haiqua2k3@gmail.com") && credentials[2].equals("HAI210903");
     }
@@ -121,7 +124,10 @@ public class SMTPServer {
                 stmt.setString(5, attachmentNames.toString());
             }
 
-            stmt.setDate(6, email.getDate());
+            // Convert java.util.Date to java.sql.Timestamp
+            Timestamp timestamp = null;
+            timestamp = new Timestamp(sdf.parse(email.getDate()).getTime());
+            stmt.setTimestamp(6, timestamp);
 
             stmt.executeUpdate();
             System.out.println("Email saved to PostgreSQL");
@@ -129,6 +135,8 @@ public class SMTPServer {
             forwardEmail(email);
         } catch (SQLException e) {
             e.printStackTrace();
+        } catch (ParseException e) {
+            throw new RuntimeException("Error parsing email date: " + email.getDate(), e);
         }
     }
 
@@ -152,7 +160,10 @@ public class SMTPServer {
             message.setFrom(new InternetAddress(email.getFrom()));
             message.setRecipient(Message.RecipientType.TO, new InternetAddress(email.getTo()));
             message.setSubject(email.getSubject());
-            message.setSentDate(email.getDate());
+
+            // Set the sent date
+            SimpleDateFormat sdf = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z");
+            message.setSentDate(sdf.parse(email.getDate()));
 
             // Create the message part
             BodyPart messageBodyPart = new MimeBodyPart();
@@ -179,9 +190,10 @@ public class SMTPServer {
             System.out.println("Email forwarded to external SMTP server");
         } catch (MessagingException e) {
             e.printStackTrace();
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
         }
     }
-
 
 
     private Email parseEmail(String emailData) {
@@ -191,18 +203,27 @@ public class SMTPServer {
         Email email = new Email();
 
         boolean isAttachment = false;
+        boolean isMessage = false;
         String currentAttachmentName = null;
         ByteArrayOutputStream currentAttachmentData = null;
 
         for (String line : lines) {
+            if(line.startsWith("Date: ")) {
+                System.out.println(line);
+                email.setDate(line.substring(6));
+            }
             if (line.startsWith("From: ")) {
                 email.setFrom(line.substring(6));
             } else if (line.startsWith("To: ")) {
                 email.setTo(line.substring(4));
             } else if (line.startsWith("Subject: ")) {
                 email.setSubject(line.substring(9));
-            } else if (line.startsWith("Message: ")) {
-                email.setMessage(line.substring(9));
+            } else if (line.startsWith("Content-Type: text/plain")) {
+                isMessage = true;
+            } else if (line.startsWith("--")) {
+                isMessage = false;
+            } else if (isMessage && !line.startsWith("--")) {
+                emailText.append(line).append("\n");
             } else if (line.startsWith("Content-Disposition: attachment; filename=\"")) {
                 isAttachment = true;
                 currentAttachmentName = line.split("filename=\"")[1].split("\"")[0];
@@ -221,6 +242,7 @@ public class SMTPServer {
             }
         }
 
+        email.setMessage(emailText.toString());
         email.setAttachments(attachments);
 
         return email;
@@ -255,79 +277,3 @@ public class SMTPServer {
     }
 }
 
-class Email {
-    private String from;
-    private String to;
-    private String subject;
-    private Date date;
-    private String message;
-    private List<Attachment> attachments;
-
-    public Email() {
-        this.attachments = new ArrayList<>();
-        this.date = new Date(System.currentTimeMillis()); // Default to the current date
-    }
-
-    // Getters and Setters
-    public String getFrom() {
-        return from;
-    }
-
-    public void setFrom(String from) {
-        this.from = from;
-    }
-
-    public String getTo() {
-        return to;
-    }
-
-    public void setTo(String to) {
-        this.to = to;
-    }
-
-    public String getSubject() {
-        return subject;
-    }
-
-    public void setSubject(String subject) {
-        this.subject = subject;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public Date getDate() { return date; }
-
-    public void setDate(Date date) { this.date = date; }
-
-    public List<Attachment> getAttachments() {
-        return attachments;
-    }
-
-    public void setAttachments(List<Attachment> attachments) {
-        this.attachments = attachments;
-    }
-}
-
-class Attachment {
-    private String filename;
-    private byte[] data;
-
-    public Attachment(String filename, byte[] data) {
-        this.filename = filename;
-        this.data = data;
-    }
-
-    public String getFilename() {
-        return filename;
-    }
-
-    public byte[] getData() {
-        return data;
-    }
-}

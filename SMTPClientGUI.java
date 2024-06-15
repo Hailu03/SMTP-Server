@@ -102,16 +102,16 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
 
     private void showMessagePage(String username) throws SQLException {
         JFrame sendMessageFrame = new JFrame("Send Message Page");
-        sendMessageFrame.setSize(600, 400);
+        sendMessageFrame.setSize(600, 520);
         sendMessageFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         sendMessageFrame.setLocationRelativeTo(null);
 
         JPanel sendMessagePanel = new JPanel(new BorderLayout());
         sendMessagePanel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
-        JPanel inputPanel = new JPanel(new BorderLayout()); // BorderLayout for input panel
+        JPanel inputPanel = new JPanel(new BorderLayout());
 
-        JPanel fieldsPanel = new JPanel(new GridLayout(2, 1, 0, 10)); // GridLayout with 2 rows for fields, spacing of 10px between rows
+        JPanel fieldsPanel = new JPanel(new GridLayout(2, 1, 0, 10));
 
         JTextField recipientField = new JTextField();
         JTextField subjectField = new JTextField();
@@ -119,16 +119,21 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         JTextArea messageArea = new JTextArea();
         messageArea.setPreferredSize(new Dimension(200, 200));
 
-        fieldsPanel.add(createLabeledTextField("Recipient:", recipientField, 200, 20)); // Add recipient field
-        fieldsPanel.add(createLabeledTextField("Subject:", subjectField, 200, 20)); // Add subject field // Add subject field
+        fieldsPanel.add(createLabeledTextField("Recipient:", recipientField, 200, 20));
+        fieldsPanel.add(createLabeledTextField("Subject:", subjectField, 200, 20));
 
-        // Add fields panel to input panel with vertical spacing
         inputPanel.add(fieldsPanel, BorderLayout.NORTH);
-        inputPanel.add(Box.createVerticalStrut(40), BorderLayout.CENTER); // Add vertical space between fields and message area
-        inputPanel.add(createLabeledTextArea("Message:", messageArea, 200, 170), BorderLayout.SOUTH); // Add message area
+        inputPanel.add(Box.createVerticalStrut(40), BorderLayout.CENTER);
+        inputPanel.add(createLabeledTextArea("Message:", messageArea, 200, 170), BorderLayout.SOUTH);
 
         // File attachment field
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JPanel attachmentPanel = new JPanel(new BorderLayout(10, 10));
+        DefaultListModel<File> listModel = new DefaultListModel<>();
+        JList<File> fileList = new JList<>(listModel);
+        fileList.setVisibleRowCount(4);
+        fileList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane listScrollPane = new JScrollPane(fileList);
+
         JButton attachButton = new JButton("Attach Files");
         JLabel fileLabel = new JLabel("No files attached");
         List<File> attachments = new ArrayList<>();
@@ -141,12 +146,29 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
                 File[] selectedFiles = fileChooser.getSelectedFiles();
                 for (File file : selectedFiles) {
                     attachments.add(file);
+                    listModel.addElement(file);
                 }
                 fileLabel.setText("Attached: " + attachments.size() + " files");
             }
         });
 
-        // Button to show email history
+        JButton deleteButton = new JButton("Delete Selected File");
+        deleteButton.addActionListener(e -> {
+            int selectedIndex = fileList.getSelectedIndex();
+            if (selectedIndex != -1) {
+                attachments.remove(selectedIndex);
+                listModel.remove(selectedIndex);
+                fileLabel.setText("Attached: " + attachments.size() + " files");
+            } else {
+                JOptionPane.showMessageDialog(sendMessageFrame, "No file selected to delete.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        attachmentPanel.add(attachButton, BorderLayout.NORTH);
+        attachmentPanel.add(listScrollPane, BorderLayout.CENTER);
+        attachmentPanel.add(deleteButton, BorderLayout.SOUTH);
+        attachmentPanel.add(fileLabel, BorderLayout.EAST);
+
         JButton showHistoryButton = new JButton("Show Email History");
         showHistoryButton.addActionListener(ev -> {
             try {
@@ -157,8 +179,7 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
             }
         });
 
-        buttonPanel.add(attachButton);
-        buttonPanel.add(fileLabel);
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonPanel.add(showHistoryButton);
 
         JButton submitButton = new JButton("Submit");
@@ -169,14 +190,13 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
 
             try {
                 smtpClient.sendEmail(username, recipient, subject, message, attachments);
-                // Show a dialog box indicating that the email was sent successfully
                 JOptionPane.showMessageDialog(sendMessageFrame, "Email sent successfully");
 
-                // Clear the fields after sending the email
                 recipientField.setText("");
                 subjectField.setText("");
                 messageArea.setText("");
                 attachments.clear();
+                listModel.clear();
                 fileLabel.setText("No files attached");
             } catch (IOException ex) {
                 ex.printStackTrace();
@@ -186,7 +206,8 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
 
         sendMessagePanel.add(inputPanel, BorderLayout.CENTER);
         buttonPanel.add(submitButton);
-        sendMessagePanel.add(buttonPanel, BorderLayout.SOUTH);
+        sendMessagePanel.add(buttonPanel, BorderLayout.NORTH);
+        sendMessagePanel.add(attachmentPanel, BorderLayout.SOUTH);
 
         sendMessageFrame.add(sendMessagePanel);
         sendMessageFrame.setVisible(true);
@@ -196,7 +217,6 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         JPanel panel = new JPanel(new BorderLayout(10, 1));
         JLabel jLabel = new JLabel(label);
 
-        // Set the preferred size of the text field
         textField.setPreferredSize(new Dimension(width, height));
 
         panel.add(jLabel, BorderLayout.WEST);
@@ -209,10 +229,8 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         JLabel jLabel = new JLabel(label);
         JScrollPane scrollPane = new JScrollPane(textArea);
         scrollPane.setPreferredSize(new Dimension(width, height));
-        // Adjust the height of the label area by specifying BorderLayout.NORTH
         panel.add(jLabel, BorderLayout.NORTH);
-        panel.add(scrollPane, BorderLayout.CENTER);  // Keep the scroll pane in the center
-
+        panel.add(scrollPane, BorderLayout.CENTER);
         return panel;
     }
 
@@ -231,18 +249,13 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
         historyFrame.setVisible(true);
     }
 
-    // Helper method to convert ResultSet to TableModel
     private static javax.swing.table.DefaultTableModel buildTableModel(ResultSet rs) throws SQLException {
         java.sql.ResultSetMetaData metaData = rs.getMetaData();
-
-        // Names of columns
         java.util.Vector<String> columnNames = new java.util.Vector<>();
         int columnCount = metaData.getColumnCount();
         for (int column = 1; column <= columnCount; column++) {
             columnNames.add(metaData.getColumnName(column));
         }
-
-        // Data of the table
         java.util.Vector<java.util.Vector<Object>> data = new java.util.Vector<>();
         while (rs.next()) {
             java.util.Vector<Object> vector = new java.util.Vector<>();
@@ -251,7 +264,6 @@ public class SMTPClientGUI extends JFrame implements ActionListener {
             }
             data.add(vector);
         }
-
         return new javax.swing.table.DefaultTableModel(data, columnNames);
     }
 
